@@ -8,7 +8,7 @@ import { cn } from './lib/utils';
 import { Button } from './components/ui/button';
 import './index.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://deploypractice-y29e.onrender.com';
 
 const ANALYSIS_STAGES = [
   { label: 'Parsing PDF', icon: '📄' },
