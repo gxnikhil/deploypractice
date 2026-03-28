@@ -2,522 +2,360 @@ import { useState, useRef, useEffect } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import html2pdf from 'html2pdf.js';
+import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
+import { FileText, Sparkles, TrendingUp, Zap, Award, Target, UploadCloud, CheckCircle, AlertCircle, Lock, Download } from 'lucide-react';
+import { cn } from './lib/utils';
+import { Button } from './components/ui/button';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const ANALYSIS_STAGES = [
-  { label: 'Parsing PDF content', icon: '📄' },
-  { label: 'Extracting skills & experience', icon: '🔍' },
-  { label: 'Matching against job description', icon: '🎯' },
-  { label: 'Generating interview insights', icon: '💡' },
-  { label: 'Finalizing report', icon: '✅' },
+  { label: 'Parsing PDF', icon: '📄' },
+  { label: 'Extracting skills', icon: '🔍' },
+  { label: 'Matching JD', icon: '🎯' },
+  { label: 'Finishing up', icon: '✅' },
 ];
 
-/* ── Animated Mesh Background ── */
-function MeshBackground() {
-  return (
-    <div className="mesh-bg" aria-hidden="true">
-      <div className="mesh-blob emerald" />
-      <div className="mesh-blob violet" />
-      <div className="mesh-blob small" />
-    </div>
-  );
-}
-
-/* ── Resume Mockup Card ── */
-function ResumeMockup() {
-  return (
-    <div className="resume-mockup-card">
-      <div className="mockup-header">
-        <div className="mockup-avatar"></div>
-        <div style={{flex:1}}>
-          <div className="mockup-bar" style={{width:'70%', height:12, marginBottom:6}}></div>
-          <div className="mockup-bar muted" style={{width:'50%', height:8}}></div>
-        </div>
-      </div>
-      <div className="mockup-divider"></div>
-      <div className="mockup-section-title">STRENGTHS</div>
-      <div className="mockup-bar accent" style={{width:'85%'}}></div>
-      <div className="mockup-bar accent" style={{width:'65%'}}></div>
-      <div className="mockup-bar accent" style={{width:'75%'}}></div>
-      <div className="mockup-section-title">EXPERIENCE</div>
-      <div className="mockup-bar" style={{width:'90%'}}></div>
-      <div className="mockup-bar" style={{width:'75%'}}></div>
-      <div className="mockup-bar muted" style={{width:'60%'}}></div>
-      <div className="mockup-bar muted" style={{width:'80%'}}></div>
-      <div className="mockup-ai-badge">✨ AI Suggestion</div>
-    </div>
-  );
-}
-
-/* ── UPI Pill with copy ── */
-function UpiPill() {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText('7080359767@fam');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+function useHoverSound() {
+  return () => {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } catch(e) {}
   };
+}
+
+function Card3D({ children, className, icon: Icon, delay = 0 }) {
+  const ref = useRef(null);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const playSound = useHoverSound();
+  
+  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [10, -10]), { stiffness: 300, damping: 30 });
+  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-10, 10]), { stiffness: 300, damping: 30 });
+  
   return (
-    <div className={`upi-pill ${copied ? 'copied' : ''}`} onClick={handleCopy} title="Click to copy">
-      <span>7080359767@fam</span>
-      <span className="copy-icon">{copied ? '✓ Copied' : '📋 Copy'}</span>
-    </div>
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 50, rotateX: -20 }}
+      animate={{ opacity: 1, y: 0, rotateX: 0 }}
+      transition={{ duration: 0.8, delay, type: "spring", stiffness: 100 }}
+      onMouseMove={(e) => {
+        if (!ref.current) return;
+        const rect = ref.current.getBoundingClientRect();
+        mouseX.set((e.clientX - rect.left) / rect.width - 0.5);
+        mouseY.set((e.clientY - rect.top) / rect.height - 0.5);
+      }}
+      onMouseLeave={() => { mouseX.set(0); mouseY.set(0); }}
+      onMouseEnter={playSound}
+      style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+      className={cn("group relative rounded-2xl border-2 border-blue-200 bg-white/80 p-8 backdrop-blur-xl hover:border-blue-300 hover:shadow-2xl transition-all duration-300", className)}
+    >
+      <motion.div style={{ transform: "translateZ(50px)" }} className="relative z-10">
+        <motion.div 
+          className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 via-sky-500 to-cyan-500 shadow-lg"
+          whileHover={{ scale: 1.1, rotate: 360 }} transition={{ duration: 0.6 }}
+        >
+          <Icon className="h-8 w-8 text-white" />
+        </motion.div>
+        {children}
+      </motion.div>
+      <div className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-br from-blue-400/30 via-sky-400/30 to-cyan-400/30 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
+    </motion.div>
   );
 }
 
-function App() {
+function TopNavbar() {
+  return (
+    <nav className="fixed top-0 z-50 w-full border-b border-white/20 bg-white/60 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-2 font-bold text-xl text-blue-900 tracking-tight">
+          <Sparkles className="h-6 w-6 text-blue-500" />
+          SkillSync AI
+        </div>
+        <div className="hidden space-x-8 text-sm font-medium text-slate-600 md:flex">
+          <a href="#" className="hover:text-blue-600 transition">Resume Check</a>
+          <a href="#" className="hover:text-blue-600 transition">Cover Letter</a>
+          <a href="#" className="hover:text-blue-600 transition">Pricing</a>
+        </div>
+        <Button className="bg-blue-600 text-white hover:bg-blue-700 rounded-full px-6">Get Started</Button>
+      </div>
+    </nav>
+  );
+}
+
+export default function App() {
   const [file, setFile] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
-  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [currentStage, setCurrentStage] = useState(0);
-  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [result, setResult] = useState(null);
   
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [showPremiumOptions, setShowPremiumOptions] = useState(false);
   const [tailoredResume, setTailoredResume] = useState('');
   const [coverLetter, setCoverLetter] = useState('');
-  const [tailoringLoading, setTailoringLoading] = useState(false);
-  const [tailoringError, setTailoringError] = useState('');
-
-  const [showCoupon, setShowCoupon] = useState(false);
-  const [couponCode, setCouponCode] = useState('');
-  const [couponApplied, setCouponApplied] = useState(false);
-  const [couponError, setCouponError] = useState('');
+  const [premiumLoading, setPremiumLoading] = useState(false);
 
   const fileInputRef = useRef(null);
-  const toolRef = useRef(null);
   const resultsRef = useRef(null);
-  const tailoredRef = useRef(null);
-  const templateRef = useRef(null);
-
-  /* Scroll reveal */
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('active'); }),
-      { threshold: 0.1 }
-    );
-    document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [result, file, loading, tailoredResume, coverLetter]);
-
-  /* Auto-advance loader stages */
-  useEffect(() => {
-    if (!loading) { setCurrentStage(0); return; }
-    if (currentStage >= ANALYSIS_STAGES.length) return;
-    const t = setTimeout(() => setCurrentStage(p => p + 1), 800);
-    return () => clearTimeout(t);
-  }, [loading, currentStage]);
-
-  const handleDownload = (htmlId, filename) => {
-    const el = document.getElementById(htmlId);
-    if (!el) return;
-    html2pdf().set({
-      margin: 0.5, filename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    }).from(el).save().catch(err => {
-      console.error('PDF failed:', err);
-      alert('PDF download failed — try again.');
-    });
-  };
+  
+  const { scrollYProgress } = useScroll();
+  const y = useTransform(scrollYProgress, [0, 1], [0, 300]);
+  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const playSound = useHoverSound();
 
   const handleAnalyze = async () => {
     if (!file || !jobDescription.trim()) { setError('Upload a resume & paste a job description.'); return; }
-    setLoading(true); setError(''); setResult(null); setCurrentStage(0); 
-    const fd = new FormData();
-    fd.append('resume', file); fd.append('job_description', jobDescription);
+    setLoading(true); setError(''); setResult(null);
+    const fd = new FormData(); fd.append('resume', file); fd.append('job_description', jobDescription);
     try {
       const res = await fetch(`${API_URL}/api/analyze`, { method: 'POST', body: fd });
-      if (!res.ok) {
-        let errDesc = `Server Error (${res.status})`;
-        try { const data = await res.json(); if (data.detail) errDesc = data.detail; } catch (e) {}
-        throw new Error(errDesc);
-      }
+      if (!res.ok) throw new Error(`Server Error (${res.status})`);
       const data = await res.json();
-      setAnalysisComplete(true);
-      setTimeout(() => {
-        setResult(data); setLoading(false); setAnalysisComplete(false); setCurrentStage(0);
-        setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
-      }, 1200);
-    } catch (err) { 
-      console.error(err);
-      setError(err.message || 'Connection failed. Is the backend running?'); 
-      setLoading(false); setCurrentStage(0); 
-    }
+      setResult(data);
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
+    } catch (err) { setError(err.message || 'Connection failed.'); }
+    setLoading(false);
   };
 
   const handlePremium = async () => {
-    setTailoringLoading(true); setTailoringError(''); setTailoredResume(''); setCoverLetter('');
+    setPremiumLoading(true);
     const fd = new FormData(); fd.append('resume', file); fd.append('job_description', jobDescription);
     try {
       const res = await fetch(`${API_URL}/api/premium`, { method: 'POST', body: fd });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Server error: ${res.status}`);
-      }
+      if (!res.ok) throw new Error('Premium processing failed');
       const data = await res.json();
       setTailoredResume(data.tailored_resume || '');
       setCoverLetter(data.cover_letter || '');
-      if (!data.tailored_resume && !data.cover_letter) setTailoringError('AI returned empty results. Retry.');
-    } catch (e) { 
-      console.error("Premium Error:", e);
-      setTailoringError(`Generation failed: ${e.message}`); 
-    }
-    finally { setTailoringLoading(false); setTimeout(() => tailoredRef.current?.scrollIntoView({ behavior: 'smooth' }), 300); }
+    } catch (e) { setError(e.message); }
+    setPremiumLoading(false);
   };
 
-  const circumference = 2 * Math.PI * 52;
-  const stageProgress = loading ? Math.min((currentStage / ANALYSIS_STAGES.length) * 100, 100) : 0;
-  const strokeOffset = circumference - (stageProgress / 100) * circumference;
+  const downloadPDF = (id, fname) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    html2pdf().set({ margin: 0.5, filename: fname, jsPDF: { unit: 'in', format: 'letter' } }).from(el).save();
+  };
 
   return (
-    <>
-      <MeshBackground />
-      <div className="app-wrapper">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-200">
+      <TopNavbar />
+      
+      {/* BACKGROUND ELEMENTS */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <motion.div animate={{ scale: [1, 1.2, 1], x: [0, 100, 0], y: [0, -100, 0] }} transition={{ duration: 20, repeat: Infinity }} className="absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full bg-sky-200/50 blur-[120px]" />
+        <motion.div animate={{ scale: [1, 1.3, 1], x: [0, -150, 0], y: [0, 100, 0] }} transition={{ duration: 25, repeat: Infinity }} className="absolute top-1/4 right-0 h-[500px] w-[500px] rounded-full bg-blue-200/40 blur-[120px]" />
+      </div>
 
-        {/* ═══ Premium Modal ═══ */}
-        {showPremiumModal && (
-          <div className="modal-overlay">
-            <div className="premium-modal">
-              <button className="modal-close btn-click" onClick={() => setShowPremiumModal(false)}>×</button>
-              <div className="premium-header">
-                <h2>Pro Suite</h2>
-                <span className="price">{couponApplied ? 'FREE' : '₹49 only'}</span>
-              </div>
+      <main className="relative z-10 pt-32 pb-24 px-6 md:pt-40">
+        <div className="mx-auto max-w-5xl text-center">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/80 px-4 py-1.5 text-sm font-semibold text-blue-700 shadow-sm backdrop-blur">
+            <Sparkles className="h-4 w-4" /> Powered by Advanced AI
+          </motion.div>
+          
+          <motion.h1 initial={{ opacity: 0, scale: 0.9, rotateX: -20 }} animate={{ opacity: 1, scale: 1, rotateX: 0 }} transition={{ duration: 0.8, type: "spring" }} className="mt-8 text-5xl font-black tracking-tight text-slate-900 md:text-7xl">
+            <span className="bg-gradient-to-br from-blue-600 via-sky-500 to-cyan-500 bg-clip-text text-transparent">AI Resume Analyzer</span>
+          </motion.h1>
+          
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
+            Get instant actionable feedback on your resume. Optimize for ATS systems, highlight missing skills, and land your dream job faster.
+          </motion.p>
+        </div>
 
-              <div style={{textAlign:'center', marginBottom: 24}}>
-                <p style={{fontSize:'0.9rem', color:'#A0A0B8', marginBottom:16, fontWeight:500}}>Pay via Paytm · GPay · PhonePe</p>
-                <img src="/qr.png" alt="Payment QR" style={{width:'100%', maxWidth:180, margin:'0 auto', borderRadius:12, border:'1px solid rgba(255,255,255,0.08)', boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}} />
-                <div style={{marginTop:16}}>
-                  <UpiPill />
-                </div>
-              </div>
-
-              {!couponApplied && (
-                <>
-                  <input type="text" className="utr-input" placeholder="12-digit UPI UTR" />
-                  <div style={{textAlign:'left', marginBottom:16, marginTop:-4}}>
-                    {!showCoupon ? (
-                      <span className="btn-click" style={{fontSize:'0.85rem', color:'#00FFB2', cursor:'pointer', fontWeight:600}} onClick={() => setShowCoupon(true)}>Have a coupon code?</span>
-                    ) : (
-                      <div style={{display:'flex', gap:8, marginTop:8}}>
-                        <input type="text" className="utr-input" style={{marginBottom:0, flex:1}} placeholder="Enter coupon" value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} />
-                        <button className="btn-click" style={{background:'#00FFB2', color:'#0A0A0F', border:'none', borderRadius:8, padding:'0 16px', fontSize:'0.85rem', fontWeight:700, cursor:'pointer'}}
-                          onClick={() => { couponCode === 'AADI001' ? (setCouponApplied(true), setCouponError('')) : setCouponError('Invalid coupon code'); }}>
-                          Apply
-                        </button>
-                      </div>
-                    )}
-                    {couponError && <div style={{color:'#ff6b6b', fontSize:'0.8rem', marginTop:6, fontWeight:500}}>{couponError}</div>}
+        {/* UPLOAD SECTION */}
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mx-auto mt-16 max-w-4xl rounded-3xl border border-white/40 bg-white/60 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="grid gap-8 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-bold text-slate-700">1. Upload your Resume (PDF)</label>
+              <div 
+                className={cn("group relative flex h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all", file ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/50")}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => setFile(e.target.files[0])} />
+                <div className="text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 group-hover:scale-110 transition-transform">
+                    {file ? <CheckCircle className="h-6 w-6" /> : <UploadCloud className="h-6 w-6" />}
                   </div>
-                </>
-              )}
-              <button className="unlock-btn btn-click" onClick={() => { setIsUnlocked(true); setShowPremiumModal(false); handlePremium(); }}>
-                {couponApplied ? 'Unlock for Free →' : 'Unlock Suite →'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ═══ Loading Overlay ═══ */}
-        {loading && (
-          <div className="analyzing-overlay">
-            <div className="analyzing-glass-card">
-              <div className="progress-arc-container">
-                <svg viewBox="0 0 120 120" className="progress-arc-svg">
-                  <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
-                  <circle cx="60" cy="60" r="52" fill="none" stroke="#00FFB2" strokeWidth="5"
-                    strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeOffset}
-                    style={{transition:'stroke-dashoffset 0.8s ease', transform:'rotate(-90deg)', transformOrigin:'center', filter:'drop-shadow(0 0 8px rgba(0,255,178,0.4))'}} />
-                </svg>
-                <div className="progress-arc-label">
-                  {analysisComplete ? <span style={{fontSize:'2rem', color:'#00FFB2'}}>✓</span> : <span>{Math.round(stageProgress)}%</span>}
+                  <p className="font-semibold text-slate-700">{file ? file.name : "Click to upload"}</p>
+                  <p className="mt-1 text-xs text-slate-500">Max 2MB. PDF format.</p>
                 </div>
               </div>
-              <div className="step-indicator">
-                {ANALYSIS_STAGES.map((s, i) => {
-                  const done = i < currentStage, active = i === currentStage && !analysisComplete, pending = i > currentStage;
-                  return (
-                    <div key={i} className={`step-item ${done ? 'done' : ''} ${active ? 'active' : ''} ${pending ? 'pending' : ''}`}>
-                      <div className="step-icon">
-                        {done ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00FFB2" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                          : active ? <div className="pulse-dot"></div>
-                          : <div className="gray-dot"></div>}
-                      </div>
-                      <span className="step-label">{s.icon} {s.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
+            </div>
+            
+            <div>
+              <label className="mb-2 block text-sm font-bold text-slate-700">2. Target Job Description</label>
+              <textarea 
+                value={jobDescription} onChange={e => setJobDescription(e.target.value)}
+                placeholder="Paste the requirements of the job you want to apply for..."
+                className="h-48 w-full resize-none rounded-2xl border border-slate-300 bg-white p-4 text-sm transiton-all focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 shadow-inner"
+              />
             </div>
           </div>
-        )}
-
-        {/* ═══ Navbar ═══ */}
-        <nav className="navbar">
-          <a className="nav-logo btn-click" href="#">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4.5 12C4.5 7.86 7.86 4.5 12 4.5C16.14 4.5 19.5 7.86 19.5 12C19.5 16.14 16.14 19.5 12 19.5" stroke="#00FFB2" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="4 4"/><path d="M12 9L15 12L12 15M15 12H9" stroke="#00FFB2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            SkillSync AI
-          </a>
-          <ul className="nav-links">
-            <li onClick={() => toolRef.current?.scrollIntoView({ behavior: 'smooth' })}>Resume Check</li>
-            <li>Cover Letter</li>
-            <li onClick={() => templateRef.current?.scrollIntoView({ behavior: 'smooth' })}>Templates</li>
-          </ul>
-          <div className="nav-btn-group">
-            <button className="nav-cta btn-click" onClick={() => toolRef.current?.scrollIntoView({ behavior: 'smooth' })}>Get Started</button>
+          
+          {error && <div className="mt-6 flex items-center gap-2 rounded-xl bg-red-50 p-4 text-sm text-red-600 border border-red-100"><AlertCircle className="h-4 w-4"/> {error}</div>}
+          
+          <div className="mt-8 flex justify-center">
+            <Button size="lg" onClick={handleAnalyze} disabled={loading || !file || !jobDescription} onMouseEnter={playSound} className="h-14 w-full max-w-md rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 text-lg font-bold shadow-xl shadow-blue-500/20 hover:scale-105 hover:shadow-2xl transition-all">
+              {loading ? <span className="flex items-center gap-2"><div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> Analyzing...</span> : <span className="flex items-center gap-2">Scan Resume <Zap className="h-5 w-5"/></span>}
+            </Button>
           </div>
-        </nav>
+        </motion.div>
 
-        {/* ═══ Hero + Upload ═══ */}
-        <section className="hero-tool-layout" ref={toolRef}>
-          <div className="hero-content reveal">
-            <div className="hero-subtitle">AI Resume Screening</div>
-            <h1 className="hero-title">Is your resume good enough?</h1>
-            <p className="hero-desc">
-              A next-gen AI resume checker performing 16 critical analyses to ensure 
-              your resume converts into interview callbacks.
-            </p>
-
-            <div className="upload-container">
-              <div className="upload-zone" onClick={() => fileInputRef.current?.click()}>
-                <div className="upload-title">Drop your resume here or choose a file</div>
-                <div className="upload-subtitle">PDF only · Max 2MB</div>
-                <input ref={fileInputRef} type="file" accept=".pdf" style={{display:'none'}}
-                  onChange={(e) => { if(e.target.files[0]) setFile(e.target.files[0]) }} />
-                {file ? <div className="file-indicator">✓ {file.name}</div> : <div className="upload-btn-fake">Upload Resume</div>}
-                <div className="privacy-lock">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C9.24 2 7 4.24 7 7V10H6C4.9 10 4 10.9 4 12V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V12C20 10.9 19.1 10 18 10H17V7C17 4.24 14.76 2 12 2ZM9 7C9 5.35 10.35 4 12 4C13.65 4 15 5.35 15 7V10H9V7Z"/></svg>
-                  Privacy guaranteed
-                </div>
-              </div>
-              <div className="form-group" style={{marginTop:24}}>
-                <textarea className="job-textarea" placeholder="Paste the target Job Description..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
-              </div>
-              {error && <div className="error-block">{error}</div>}
-              <button className="analyze-btn btn-click" onClick={handleAnalyze} disabled={loading || !file || !jobDescription}>Start Analysis</button>
-            </div>
-          </div>
-          <div className="hero-mockup reveal">
-            <ResumeMockup />
-          </div>
-        </section>
-
-        {/* ═══ Marketing Sections ═══ */}
+        {/* HIGHLIGHTS SECTION (Visible before analyzing) */}
         {!result && !loading && (
-          <>
-            <section className="dark-section reveal">
-              <div className="dark-header">
-                <h2>Our AI goes beyond typos and punctuation</h2>
-                <p>Built-in deep intelligence to craft a resume tailored to the exact position you're applying for.</p>
-              </div>
-              <div className="checklist-layout">
-                <div className="checklist-intro">
-                  <h3>Resume optimization checklist</h3>
-                  <p>16 crucial checks across 5 categories — content, format, keywords, style, and skills.</p>
+          <div className="mt-24 grid gap-8 sm:grid-cols-3 max-w-5xl mx-auto">
+            <Card3D icon={TrendingUp} delay={0.1}>
+              <h3 className="mt-6 text-xl font-bold text-slate-800">ATS Optimization</h3>
+              <p className="mt-3 text-sm text-slate-600">Ensure your resume passes applicant tracking systems with precision analysis.</p>
+            </Card3D>
+            <Card3D icon={Award} delay={0.2}>
+              <h3 className="mt-6 text-xl font-bold text-slate-800">Smart Suggestions</h3>
+              <p className="mt-3 text-sm text-slate-600">Get AI-powered recommendations to improve your content and stand out.</p>
+            </Card3D>
+            <Card3D icon={Target} delay={0.3}>
+              <h3 className="mt-6 text-xl font-bold text-slate-800">Instant Alignment</h3>
+              <p className="mt-3 text-sm text-slate-600">Match your experience perfectly against any job description in seconds.</p>
+            </Card3D>
+          </div>
+        )}
+
+        {/* RESULTS SECTION */}
+        {result && (
+          <motion.div ref={resultsRef} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mx-auto mt-24 max-w-5xl">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-black text-slate-900">Analysis Complete.</h2>
+              <p className="mt-2 text-slate-600">Here's how well your resume matches the job description.</p>
+            </div>
+            
+            <div className="grid gap-8 md:grid-cols-3">
+              <div className="md:col-span-1 rounded-3xl bg-white p-8 shadow-[0_20px_50px_rgba(8,_112,_184,_0.07)] text-center flex flex-col items-center justify-center">
+                <div className="relative flex h-48 w-48 items-center justify-center rounded-full bg-slate-50 shadow-inner">
+                  <svg className="absolute inset-0 h-full w-full -rotate-90">
+                    <circle cx="96" cy="96" r="88" fill="none" strokeWidth="12" className="stroke-slate-100" />
+                    <circle cx="96" cy="96" r="88" fill="none" strokeWidth="12" strokeDasharray="553" strokeDashoffset={553 - (result.score / 100) * 553} className="stroke-blue-500 transition-all duration-1000 ease-out" strokeLinecap="round" />
+                  </svg>
+                  <div className="absolute text-5xl font-black text-blue-600">{result.score}<span className="text-2xl text-slate-400 font-medium">%</span></div>
                 </div>
-                <div className="checklist-grid">
-                  {[
-                    { title: 'Content', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>, items: ['ATS parse rate', 'Word repetition', 'Grammar check', 'Impact quantification'] },
-                    { title: 'Format', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>, items: ['File format', 'Resume length', 'Bullet brevity'] },
-                    { title: 'Skills', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, items: ['Hard skills', 'Soft skills'] },
-                    { title: 'Style', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg>, items: ['Design analysis', 'Active voice', 'Buzzwords'] },
-                  ].map(c => (
-                    <div className="c-card" key={c.title}>
-                      <div className="c-icon">{c.icon}</div>
-                      <h4>{c.title}</h4>
-                      <ul className="c-list">{c.items.map(i => <li key={i}>{i}</li>)}</ul>
+                <h3 className="mt-6 text-xl font-bold text-slate-800">Match Score</h3>
+                <p className="mt-2 text-sm text-slate-500">Your resume is a {result.score >= 80 ? 'strong' : result.score >= 60 ? 'fair' : 'weak'} match.</p>
+              </div>
+              
+              <div className="md:col-span-2 rounded-3xl bg-white p-8 shadow-[0_20px_50px_rgba(8,_112,_184,_0.07)]">
+                <h3 className="flex items-center gap-2 text-xl font-bold text-slate-800"><FileText className="h-6 w-6 text-blue-500"/> Executive Summary</h3>
+                <p className="mt-4 text-slate-600 leading-relaxed">{result.summary}</p>
+                
+                <h3 className="mt-8 text-xl font-bold text-slate-800 border-t border-slate-100 pt-6">Skill Breakdown</h3>
+                <div className="mt-6 grid grid-cols-2 gap-4">
+                  {Object.entries(result.breakdown).map(([key, val]) => (
+                    <div key={key}>
+                      <div className="flex justify-between text-sm font-semibold text-slate-700 mb-1">
+                        <span className="capitalize">{key.replace('_', ' ')}</span>
+                        <span className="text-blue-600">{val}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${val}%` }}/></div>
                     </div>
                   ))}
                 </div>
               </div>
-            </section>
+            </div>
 
-            <section className="feature-section reveal">
-              <div className="feature-row">
-                <div className="feature-text">
-                  <h2>Rewrite your resume with AI</h2>
-                  <p>Powered by state-of-the-art LLMs, our engine rewrites your resume to perfectly match the job description — optimizing keywords, structure, and impact.</p>
-                  <p style={{marginTop:16}}>Content suggestions, summary generation, and buzzword removal — all automated.</p>
-                </div>
-                <div className="feature-visual" style={{padding:0, overflow:'hidden'}}>
-                  <ResumeMockup />
+            <div className="mt-8 grid gap-8 md:grid-cols-2">
+              <div className="rounded-3xl bg-red-50/50 p-8 border border-red-100 shadow-sm">
+                <h3 className="flex items-center gap-2 text-lg font-bold text-red-700"><AlertCircle className="h-5 w-5"/> Areas of Concern</h3>
+                <ul className="mt-4 space-y-3">
+                  {result.areas_of_concern?.map((item, i) => <li key={i} className="flex items-start gap-2 text-sm text-red-900"><span className="mt-0.5 min-w-[12px]">•</span> <span>{item}</span></li>)}
+                </ul>
+              </div>
+              <div className="rounded-3xl bg-emerald-50/50 p-8 border border-emerald-100 shadow-sm">
+                <h3 className="flex items-center gap-2 text-lg font-bold text-emerald-700"><Target className="h-5 w-5"/> Prep Tips</h3>
+                <ul className="mt-4 space-y-3">
+                  {result.preparation_tips?.map((item, i) => <li key={i} className="flex items-start gap-2 text-sm text-emerald-900"><span className="mt-0.5 min-w-[12px]">•</span> <span>{item}</span></li>)}
+                </ul>
+              </div>
+            </div>
+
+            {/* PREMIUM CALL TO ACTION */}
+            {!showPremiumOptions && (
+              <div className="mt-12 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 p-10 text-center shadow-2xl relative">
+                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+                <div className="relative z-10">
+                  <span className="inline-block rounded-full bg-blue-500/20 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-300">Unlock Pro Suite</span>
+                  <h3 className="mt-4 text-3xl font-black text-white">Let AI rewrite it for you.</h3>
+                  <p className="mx-auto mt-4 max-w-xl text-slate-300">Generate a perfectly tailored cover letter and a rewritten resume maximizing your chances of passing ATS systems.</p>
+                  <Button size="lg" onClick={() => { setShowPremiumOptions(true); handlePremium(); }} className="mt-8 h-12 rounded-full bg-blue-500 hover:bg-blue-400 text-white shadow-lg text-lg font-bold px-8">
+                    <Lock className="mr-2 h-5 w-5"/> Unlock Now
+                  </Button>
                 </div>
               </div>
-              <div className="feature-row reverse" style={{marginTop:100}}>
-                <div className="feature-text">
-                  <h2>ATS compatibility analysis</h2>
-                  <p>We've reverse-engineered popular applicant tracking systems to check your resume's parsability rate, keyword density, and format compliance.</p>
-                </div>
-                <div className="feature-visual ats-score-visual">
-                  <div className="ats-inner">
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
-                      <span style={{fontWeight:700, color:'#fff', fontFamily:'var(--font-display)'}}>ATS Score</span>
-                      <span style={{fontWeight:800, color:'#00FFB2', fontSize:'1.5rem', fontFamily:'var(--font-display)', textShadow:'0 0 20px rgba(0,255,178,0.3)'}}>92%</span>
-                    </div>
-                    <div style={{height:6, background:'#1e1e2e', borderRadius:8, overflow:'hidden'}}>
-                      <div style={{width:'92%', height:'100%', background:'linear-gradient(90deg, #00FFB2, #059669)', borderRadius:8, boxShadow:'0 0 12px rgba(0,255,178,0.3)'}}></div>
-                    </div>
-                    <div className="ats-chips">
-                      {['Keywords ✓','Format ✓','Length ✓','Contact ✓'].map(t => <span key={t} className="ats-chip">{t}</span>)}
-                    </div>
+            )}
+            
+            {showPremiumOptions && (
+              <div className="mt-12 space-y-8">
+                {premiumLoading ? (
+                  <div className="flex flex-col items-center py-12 text-slate-500">
+                    <div className="analyzing-ring mb-4 border-blue-200 border-l-blue-600 border-t-blue-600"/>
+                    <p className="font-medium animate-pulse">Crafting your tailored documents...</p>
                   </div>
-                </div>
-              </div>
-            </section>
-            {/* ═══ Templates Coming Soon ═══ */}
-            <section className="templates-section" ref={templateRef}>
-              <div className="templates-header">
-                <span className="coming-soon-badge">Coming Soon</span>
-                <h2 className="templates-title">Premium Resume Templates</h2>
-                <p className="templates-desc">Professionally designed, ATS-optimized templates crafted to make your resume stand out. Pick a style, import your data, and download.</p>
-              </div>
-              <div className="templates-grid">
-                {[
-                  { name: 'Minimal Pro', color: '#00FFB2', bars: [90, 70, 85, 60, 75, 50] },
-                  { name: 'Executive Dark', color: '#7C3AED', bars: [85, 65, 90, 55, 80, 45] },
-                  { name: 'Creative Edge', color: '#3b82f6', bars: [80, 90, 60, 75, 50, 85] },
-                  { name: 'Classic Clean', color: '#f59e0b', bars: [75, 85, 70, 90, 65, 55] },
-                ].map((t, idx) => (
-                  <div className="template-card" key={idx}>
-                    <div className="template-preview" style={{'--accent': t.color}}>
-                      <div className="tpl-header">
-                        <div className="tpl-avatar" style={{background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`}}></div>
-                        <div style={{flex:1}}>
-                          <div className="tpl-bar" style={{width:'65%', height:10, background: t.color, opacity: 0.8}}></div>
-                          <div className="tpl-bar" style={{width:'45%', height:7, marginTop:6}}></div>
+                ) : (
+                  <>
+                    <h2 className="text-3xl font-black text-slate-900 mt-16 text-center">Your Pro Documents</h2>
+                    <div className="grid md:grid-cols-2 gap-8">
+                      {tailoredResume && (
+                        <div className="rounded-3xl bg-white shadow-lg p-6 flex flex-col h-[600px]">
+                          <div className="flex items-center justify-between mb-4 border-b pb-4">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><FileText className="h-5 w-5 text-blue-500"/> Tailored Resume</h3>
+                            <Button size="sm" variant="outline" onClick={() => downloadPDF('resume-doc', 'Optimized_Resume.pdf')} className="rounded-full shadow-sm">
+                              <Download className="mr-2 h-4 w-4"/> PDF
+                            </Button>
+                          </div>
+                          <div id="resume-doc" className="prose prose-sm xl:prose-base overflow-y-auto pr-2 custom-scroll flex-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked(tailoredResume)) }} />
                         </div>
-                      </div>
-                      <div className="tpl-divider"></div>
-                      {t.bars.map((w, i) => (
-                        <div className="tpl-bar" key={i} style={{width:`${w}%`, marginBottom: 6}}></div>
-                      ))}
-                      <div className="template-lock-overlay">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      </div>
+                      )}
+                      {coverLetter && (
+                        <div className="rounded-3xl bg-white shadow-lg p-6 flex flex-col h-[600px]">
+                          <div className="flex items-center justify-between mb-4 border-b pb-4">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><FileText className="h-5 w-5 text-purple-500"/> Cover Letter</h3>
+                            <Button size="sm" variant="outline" onClick={() => downloadPDF('cover-doc', 'Cover_Letter.pdf')} className="rounded-full shadow-sm">
+                              <Download className="mr-2 h-4 w-4"/> PDF
+                            </Button>
+                          </div>
+                          <div id="cover-doc" className="prose prose-sm xl:prose-base overflow-y-auto pr-2 custom-scroll flex-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked(coverLetter)) }} />
+                        </div>
+                      )}
                     </div>
-                    <div className="template-info">
-                      <span className="template-name">{t.name}</span>
-                      <span className="template-soon" style={{color: t.color}}>Soon</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </>
-        )}
-
-        {/* ═══ Results ═══ */}
-        {result && (
-          <section className="results-section" ref={resultsRef}>
-            <div className="score-card reveal">
-              <div className="score-ring">
-                <svg viewBox="0 0 100 100"><circle className="track" cx="50" cy="50" r="45" /><circle className="fill-ring" cx="50" cy="50" r="45" stroke="#00FFB2" strokeDasharray={2*Math.PI*45} strokeDashoffset={2*Math.PI*45-(result.score/100)*(2*Math.PI*45)} /></svg>
-                <div className="score-number"><span className="value">{result.score}</span><span className="unit">Score</span></div>
-              </div>
-              <div className="score-breakdown-panel">
-                {['technical_skills','experience','domain_knowledge','education'].map(k => (
-                  <div className="breakdown-item" key={k}>
-                    <div className="label">{k.replace('_', ' ')} <span>{result.breakdown[k]}%</span></div>
-                    <div className="b-bar"><div className="b-fill" style={{width:`${result.breakdown[k]}%`}}></div></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="summary-card reveal"><p>{result.summary}</p></div>
-
-            <h3 className="section-title reveal">🎯 Interview Preparation</h3>
-            <div className="prep-grid reveal">
-              <div className="prep-card"><h4>🔍 Expected Questions</h4><ul>{result.expected_questions?.map((q,i) => <li key={i}>{q}</li>)}</ul></div>
-              <div className="prep-card"><h4>⚠️ Areas of Concern</h4><ul>{result.areas_of_concern?.map((c,i) => <li key={i}>{c}</li>)}</ul></div>
-              <div className="prep-card"><h4>🏢 Expected Rounds</h4><ol>{result.interview_rounds?.map((r,i) => <li key={i}>{r}</li>)}</ol></div>
-              <div className="prep-card"><h4>💡 Pro Tips</h4><ul>{result.preparation_tips?.map((t,i) => <li key={i}>{t}</li>)}</ul></div>
-            </div>
-
-            <h3 className="section-title reveal">🗺️ Learning Roadmap</h3>
-            <div className="roadmap-grid reveal">
-              {result.leetcode_links?.length > 0 && <div className="resource-card"><h4>LeetCode</h4><div className="link-group">{result.leetcode_links.map((l,i)=><a key={i} href={l.url} className="link-pill" target="_blank" rel="noreferrer">{l.title} ↗</a>)}</div></div>}
-              {result.youtube_links?.length > 0 && <div className="resource-card"><h4>YouTube</h4><div className="link-group">{result.youtube_links.map((l,i)=><a key={i} href={l.url} className="link-pill" target="_blank" rel="noreferrer">{l.title} ↗</a>)}</div></div>}
-              {result.github_repos?.length > 0 && <div className="resource-card"><h4>GitHub</h4><div className="link-group">{result.github_repos.map((l,i)=><a key={i} href={l.url} className="link-pill" target="_blank" rel="noreferrer">{l.title} ↗</a>)}</div></div>}
-              {result.related_jobs?.length > 0 && <div className="resource-card"><h4>Jobs</h4><div className="link-group">{result.related_jobs.map((l,i)=><a key={i} href={l.url} className="link-pill" target="_blank" rel="noreferrer">{l.platform} ↗</a>)}</div></div>}
-            </div>
-
-            {!isUnlocked && (
-              <div className="combo-banner reveal" style={{marginTop:40}}>
-                <h3>Unlock Career Pro Suite</h3>
-                <p style={{marginBottom:16}}>AI-tailored Resume & Cover Letter to crush the competition.</p>
-                <button className="p-btn p-btn-primary btn-click" onClick={() => setShowPremiumModal(true)}>Get Full Suite (₹49)</button>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ═══ Tailored Output ═══ */}
-        {(tailoringLoading || tailoredResume || coverLetter || tailoringError) && (
-          <section className="results-section" ref={tailoredRef} style={{paddingTop:20}}>
-            {tailoringLoading ? (
-              <div style={{textAlign:'center', padding:'60px 0'}}>
-                <div className="analyzing-ring" style={{margin:'0 auto 16px'}}></div>
-                <p style={{color:'#A0A0B8', fontWeight:500}}>Generating your documents...</p>
-              </div>
-            ) : tailoringError ? (
-              <div style={{background:'rgba(255,107,107,0.06)', padding:24, borderRadius:12, border:'1px solid rgba(255,107,107,0.15)', textAlign:'center'}}>
-                <p style={{color:'#ff6b6b', fontWeight:600, marginBottom:12}}>⚠️ {tailoringError}</p>
-                <button className="btn-click" style={{background:'#00FFB2', color:'#0A0A0F', border:'none', padding:'10px 24px', borderRadius:8, fontWeight:700, cursor:'pointer'}} onClick={handlePremium}>Retry</button>
-              </div>
-            ) : (
-              <div style={{display:'flex', flexDirection:'column', gap:40}}>
-                {tailoredResume && (
-                  <div className="reveal">
-                    <div style={{background:'rgba(0,255,178,0.06)', padding:'16px 24px', borderLeft:'3px solid #00FFB2', borderRadius:8, marginBottom:24}}>
-                      <h3 style={{color:'#00FFB2', fontSize:'1.2rem', marginBottom:6, fontWeight:700, fontFamily:'var(--font-display)'}}>🎉 Your Tailored CV</h3>
-                      <p style={{color:'#A0A0B8', fontSize:'0.95rem'}}>Matching rate: <strong style={{color:'#00FFB2'}}>95%+</strong> for this role.</p>
-                      <button className="btn-click" style={{marginTop:12, background:'#00FFB2', color:'#0A0A0F', border:'none', padding:'10px 20px', borderRadius:6, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}} onClick={() => handleDownload('tailored-cv-doc','Optimized_Resume.pdf')}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Download PDF
-                      </button>
-                    </div>
-                    <div id="tailored-cv-doc" className="document-preview" dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(marked(tailoredResume))}}></div>
-                  </div>
-                )}
-                {coverLetter && (
-                  <div className="reveal">
-                    <div style={{background:'rgba(124,58,237,0.08)', padding:'16px 24px', borderLeft:'3px solid #7C3AED', borderRadius:8, marginBottom:24}}>
-                      <h3 style={{color:'#A78BFA', fontSize:'1.2rem', marginBottom:6, fontWeight:700, fontFamily:'var(--font-display)'}}>📝 Cover Letter</h3>
-                      <p style={{color:'#A0A0B8', fontSize:'0.95rem'}}>Tailored to bridge your experience with the role requirements.</p>
-                      <button className="btn-click" style={{marginTop:12, background:'#7C3AED', color:'#fff', border:'none', padding:'10px 20px', borderRadius:6, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}} onClick={() => handleDownload('cover-letter-doc','Cover_Letter.pdf')}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Download PDF
-                      </button>
-                    </div>
-                    <div id="cover-letter-doc" className="document-preview" dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(marked(coverLetter))}}></div>
-                  </div>
+                  </>
                 )}
               </div>
             )}
-          </section>
+          </motion.div>
         )}
-
-        {/* ═══ Footer ═══ */}
-        <footer className="footer reveal">
-          <div style={{display:'flex', flexDirection:'column', gap:4}}>
-            <div className="footer-brand">SkillSync AI</div>
-            <div style={{fontSize:'0.85rem', color:'#60607a', fontWeight:500}}>Developed by <strong style={{color:'#00FFB2'}}>AADI</strong></div>
-          </div>
-          <div className="footer-links">
-            <a href="#" className="footer-link">Terms</a>
-            <a href="#" className="footer-link">Privacy</a>
-            <a href="mailto:adiexzzz@proton.me" className="contact-badge btn-click">adiexzzz@proton.me</a>
-          </div>
-        </footer>
-      </div>
-    </>
+      </main>
+      
+      <footer className="relative z-10 border-t border-slate-200 bg-white py-8 mt-20">
+        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-6 md:flex-row">
+          <div className="flex items-center gap-2 font-bold text-slate-800"><Sparkles className="h-5 w-5 text-blue-500" /> SkillSync AI</div>
+          <p className="text-sm text-slate-500">© 2026 Designed for performance.</p>
+        </div>
+      </footer>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .prose h1, .prose h2, .prose h3 { color: #0f172a; margin-top: 1.5em; margin-bottom: 0.5em; font-weight: 700; }
+        .prose ul { padding-left: 1.5em; list-style-type: disc; }
+        .prose p { margin-bottom: 1em; color: #475569; }
+      `}} />
+    </div>
   );
 }
-
-export default App;
