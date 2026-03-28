@@ -97,9 +97,17 @@ def analyze_with_groq(resume_text: str, job_description: str):
     
     try:
         content = call_ai_with_retry(prompt, response_format={"type": "json_object"})
-        # Clean xAI response if it included markdown backticks
-        if content.strip().startswith("```"):
-            content = content.strip().split("```json")[-1].split("```")[0].strip()
+        
+        # Extract JSON using string search if it contains markdown or extra text
+        import re
+        match = re.search(r'\{(?:[^{}]|(?R))*\}', content, re.DOTALL) if hasattr(re, 'error') else None 
+        # Since Python re doesn't support recursive, let's use a simple greedy match for the outermost braces
+        # A simpler approach: find first '{' and last '}'
+        start = content.find('{')
+        end = content.rfind('}')
+        if start != -1 and end != -1:
+            content = content[start:end+1]
+            
         return json.loads(content)
     except Exception as e:
         logger.error(f"AI Suite Failed: {str(e)}")
@@ -115,8 +123,12 @@ def get_premium_suite(resume_text: str, job_description: str):
     """
     try:
         content = call_ai_with_retry(prompt, response_format={"type": "json_object"})
-        if content.strip().startswith("```"):
-            content = content.strip().split("```json")[-1].split("```")[0].strip()
+        
+        start = content.find('{')
+        end = content.rfind('}')
+        if start != -1 and end != -1:
+            content = content[start:end+1]
+            
         return json.loads(content)
     except Exception as e:
         raise e

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import html2pdf from 'html2pdf.js';
@@ -110,8 +110,8 @@ export default function App() {
   const resultsRef = useRef(null);
   
   const { scrollYProgress } = useScroll();
-  const y = useTransform(scrollYProgress, [0, 1], [0, 300]);
-  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  // const y = useTransform(scrollYProgress, [0, 1], [0, 300]);
+  // const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const playSound = useHoverSound();
 
   const handleAnalyze = async () => {
@@ -122,7 +122,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/analyze`, { method: 'POST', body: fd });
       if (!res.ok) {
         let errDesc = `Server Error (${res.status})`;
-        try { const errorData = await res.json(); if (errorData.detail) errDesc = errorData.detail; } catch(e){}
+        try { const errorData = await res.json(); if (errorData.detail) errDesc = errorData.detail; } catch (e) { console.warn(e); }
         throw new Error(errDesc);
       }
       const data = await res.json();
