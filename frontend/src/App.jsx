@@ -120,7 +120,11 @@ export default function App() {
     const fd = new FormData(); fd.append('resume', file); fd.append('job_description', jobDescription);
     try {
       const res = await fetch(`${API_URL}/api/analyze`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error(`Server Error (${res.status})`);
+      if (!res.ok) {
+        let errDesc = `Server Error (${res.status})`;
+        try { const errorData = await res.json(); if (errorData.detail) errDesc = errorData.detail; } catch(e){}
+        throw new Error(errDesc);
+      }
       const data = await res.json();
       setResult(data);
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
